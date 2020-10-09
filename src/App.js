@@ -6,13 +6,6 @@ import '@vkontakte/vkui/dist/vkui.css';
 
 import Home from './panels/Home';
 import Card from './panels/Card';
-const data = [ 
-	{ phone: 79087771718, name: 'Foo', score: 200 }, 
-	{ phone: 79087733718, name: 'Foo', score: 200 }, 
-	{ phone: 79087772218, name: 'Foo', score: 200 }, 
-	{ phone: 79087227118, name: 'Foo', score: 200 }, 
-	{ phone: 79081171718, name: 'Foo', score: 200 }, 
-]
 
 const App = () => {
 	const [activePanel, setActivePanel] = useState('home');
