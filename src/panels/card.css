@@ -1,0 +1,11 @@
+.code {
+    display: flex;
+    width: 70%;
+    margin: 0px auto;
+}
+
+.description {
+    display: flex;
+    margin: 10px auto 0px auto;
+    justify-content: center;
+}
