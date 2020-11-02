@@ -9,3 +9,8 @@
     margin: 10px auto 0px auto;
     justify-content: center;
 }
+
+.score {
+    display: flex;
+    align-items: center;
+}
