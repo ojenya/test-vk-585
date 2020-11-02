@@ -6,10 +6,8 @@ import {
 	ModalPage,
 	Root,
 	Text,
-	ModalRoot,
-	ModalPageHeader,
-	PanelHeaderButton,
-	FormLayoutGroup,
+	ModalRoot,ModalPageHeader,
+	PanelHeaderButton,FormLayoutGroup,
 	Epic,
 	Tabbar,
 	TabbarItem,
@@ -17,53 +15,75 @@ import {
 	Input,
 	ScreenSpinner,
 	FormLayout,
+	Div,
 	IS_PLATFORM_ANDROID,
 	IS_PLATFORM_IOS,
-
+	Snackbar,
+	Avatar,
 } from "@vkontakte/vkui";
 
-import Icon28LogoVkOutline from '@vkontakte/icons/dist/28/logo_vk_outline';
-import Icon24Cancel from '@vkontakte/icons/dist/24/cancel';
-import Icon24Done from '@vkontakte/icons/dist/24/done';
-import Icon28SettingsOutline from '@vkontakte/icons/dist/28/settings_outline';
-import Icon28PaymentCardOutline from '@vkontakte/icons/dist/28/payment_card_outline';
-import Icon28FireOutline from '@vkontakte/icons/dist/28/fire_outline';
-
-import '@vkontakte/vkui/dist/vkui.css';
 
 import Card from './panels/CardDiscount';
 import Stock from './panels/Stock';
 import Settings from './panels/Settings';
+import Intro from '../src/panels/Intro/Intro'
+
+import Icon28LogoVkOutline from '@vkontakte/icons/dist/28/logo_vk_outline';
+import Icon24Cancel from '@vkontakte/icons/dist/24/cancel';
+import Icon24Done from '@vkontakte/icons/dist/24/done';
+
+import Icon28SettingsOutline from '@vkontakte/icons/dist/28/settings_outline';
+import Icon28PaymentCardOutline from '@vkontakte/icons/dist/28/payment_card_outline';
+
+import '@vkontakte/vkui/dist/vkui.css';
+import Icon28FireOutline from '@vkontakte/icons/dist/28/fire_outline';
+import {
+} from "@vkontakte/vkui";
+
+import Icon24Error from '@vkontakte/icons/dist/24/error';
 
 const App = () => {
 	const [activeStory,setActiveStory]=useState('card')
-	const [modalHistory,setModalHistory]=useState([]);  
-	const [activeModal,setModal]=useState(null);
-
 	const [fetchedUser, setUser] = useState(null);
-	const [score,setScore]=useState(null)
-	const [stockList,setStockList]=useState([])
 	const [phone,setPhone] = useState('')
 	const [userPhone, setUserPhone] = useState('');
+	const [popout, setPopout] = useState(<ScreenSpinner size='large' />);
+	const [activeModal,setModal]=useState(null);
+	const [modalHistory,setModalHistory]=useState([]);  
     const [switchNotification,setSwitch] = useState(false)
 	const [initial,setInit]=useState(false)
 
 
-	//PhoneHandle и Phone делаем запрос к API например zolotoy.ru/${e.phone_number} и он возвращает json
-	const phoneHandle = (event) => {
+	//добавил 30 10
+	const [userHasSeenIntro, setUserHasSeenIntro] = useState(false);
+	const [fetchedState, setFetchedState] = useState(null);
+	const [group,setGroup]=useState({})
+	const [snackbar, setSnackbar] = useState(null);
+
+	const STORAGE_KEYS = {
+		GROUP: 'group',
+		STATUS: 'viewStatus',
+	};
+	
+
+
+
+
+	const phoneSubmit = (event) => {
 		event.preventDefault();
-		API(userPhone)
+		setPhone(userPhone)
 		modalBack()
 	}
 
 	const Phone = () => {
 		bridge.send("VKWebAppGetPhoneNumber")
 		.then(
-			e => API(e.phone_number),
+			e => setPhone(e.phone_number),
 			err=>console.log(err)
 		)
 		modalBack()
 	}
+
 
 	const onStoryChange = (e) => {
 		setActiveStory(e.currentTarget.dataset.story)
@@ -87,13 +107,12 @@ const App = () => {
 		setModalHistory(modalHistory)
 	};
 
-	//Выход из модального окна
 	const modalBack = () => {
 		setActiveModal(modalHistory[modalHistory.length - 2]);
 	};
 
-	//VK API
-	const fetching = () =>{
+
+	const fetching = (data) =>{
 		bridge.subscribe(({ detail: { type, data }}) => {
 			if (type === 'VKWebAppUpdateConfig') {
 				const schemeAttribute = document.createAttribute('scheme');
@@ -102,18 +121,62 @@ const App = () => {
 			}
 
 		});
-		//Делаем запрос к VK API и получаем данные пользлователя, такие как: id, first_name, last_name, sex, timezone.
+
+		// async function fetchData() {
+		// 	const user = await bridge.send('VKWebAppGetUserInfo',{});
+		// 	setUser(user);
+		// 	setPopout(null);
+		// }
+
+		// fetchData();
+
+
+
 		async function fetchData() {
-			const user = await bridge.send('VKWebAppGetUserInfo',{});
-			setUser(user);
-			//Убираем спиннер
-			setInit(true)
+			const user = await bridge.send('VKWebAppGetUserInfo');
+			const hasSeenIntro = await bridge.send("VKWebAppStorageGet", {"keys": [STORAGE_KEYS.GROUP, STORAGE_KEYS.STATUS]})
+			if (Array.isArray(hasSeenIntro.keys)) {
+				hasSeenIntro.keys.forEach(({ key, value }) => {
+					try {
+						switch (key) {
+							case STORAGE_KEYS.STATUS:
+								console.log(value)
+								if (value.includes('true') ) {
+									setUserHasSeenIntro(true);
+								}
+								break;
+							default:
+								break;
+							}
+						} catch (error) {
+							setSnackbar(<Snackbar
+								layout='vertical'
+								onClose={() => setSnackbar(null)}
+								before={<Avatar size={24} style={{backgroundColor: 'var(--dynamic_red)'}}><Icon24Error fill='#fff' width={14} height={14} /></Avatar>}
+								duration={900}
+							>
+								Проблема с получением данных из Storage
+							</Snackbar>
+							);
+							setFetchedState({});
+						}
+					});
+					
+				} 
+				else {
+					setFetchedState({});
+				}
+				setUser(user);
+				setPopout(null);
+			}
+			fetchData();
 		}
-		fetchData();
-		}
+
+		
 	
-	// example: fetch(`someAPI.ru/${phone}`)
-	async function API (phone) {
+	
+	async function API () {
+
 		fetch('https://5f9bdf08856f4c00168c4a2d.mockapi.io/api/phone')
 		.then((response) => {
 			if (response.ok){
@@ -125,38 +188,17 @@ const App = () => {
 			}
 		})
 		.then((data) => {
-			setPhone(data[0].phone)
-			setScore(data[0].score)
-
-		});
-	}
-
-	async function stock () {
-
-		fetch('https://5f9bdf08856f4c00168c4a2d.mockapi.io/api/stock')
-		.then((response) => {
-			if (response.ok){
-				return response.json();
-			}
-			else
-			{
-				return null
-			}
-		})
-		.then((data) => {
-			data.forEach(el => {
-				stockList.push(el)
-			});
+			setInit(true)
+			console.log(data);
 		});
 	}
 
 	useEffect(() => {
 		fetching();
-		stock();
+		API();
+
 	}, []);
 
-
-	//Модальное окно вынес в отдельную переменную чтобы было понятнее
 	const modal = (
 	<ModalRoot
 	activeModal={activeModal}
@@ -174,27 +216,26 @@ const App = () => {
 			</ModalPageHeader>
 		}
 		>
-		<FormLayout onSubmit={phoneHandle}>
-			<FormLayoutGroup top="Необходимо указать номер телефона">
-					<Input
-						type='number'
-						pattern="[0-9]{0,10}"
-						status={phone ? 'valid' : 'error'}
-						value={userPhone}
-						onChange={e => setUserPhone(e.target.value)}
-					/>
-					<br/>
-					<Button size="xl" level="2" type="submit" mode="secondary" >Добавить</Button>
+			<FormLayout onSubmit={phoneSubmit}>
+				<FormLayoutGroup top="Необходимо указать номер телефона">
+						<Input
+							type='number'
+							pattern="[0-9]{0,10}"
+							status={phone ? 'valid' : 'error'}
+							value={userPhone}
+							onChange={e => setUserPhone(e.target.value)}
+						/>
+						<br/>
+						<Button size="xl" level="2" type="submit" mode="secondary" >Добавить</Button>
 
-			</FormLayoutGroup>
-			<Text className="description">или</Text>
-			<Button size="xl" level="2"  mode="primary" onClick={Phone} before={<Icon28LogoVkOutline/> }>Использовать VK Connect</Button>
-		</FormLayout>
+				</FormLayoutGroup>
+				<Text className="description">или</Text>
+				<Button size="xl" level="2"  mode="primary" onClick={Phone} before={<Icon28LogoVkOutline/> }>Использовать VK Connect</Button>
+			</FormLayout>
 		</ModalPage>
 	</ModalRoot>
 	);
 	
-	//Таббары окно вынес в отдельную переменную чтобы было понятнее
 	const tabbar = (
 	<Tabbar>
 		<TabbarItem
@@ -226,17 +267,23 @@ const App = () => {
 		</TabbarItem>
 	</Tabbar>
 	);
-
+	const epica = (
+		userHasSeenIntro === false 
+		? 
+		<Intro fetchedUser={fetchedUser} userHasSeenIntro={userHasSeenIntro} setActiveModal={() => setActiveModal("card")}></Intro> 
+		: 
+		<Epic activeStory={activeStory} tabbar={tabbar} >
+			<Card  id="card" activePanel="card" phone={phone} setActiveModal={() => setActiveModal("card")}/>
+			<Stock id="stock" activePanel="stock" />
+			<Settings id="settings" activePanel="settings" fetchedUser={fetchedUser} phone={phone} switchNotification={switchNotification} setActiveModal={()=> setActiveModal("card")} setSwitch={() => setSwitch()}/>
+		</Epic>
+	)
 	return (
 		<Root modal={modal}>
 			{
 			initial === true 
 			?
-			<Epic activeStory={activeStory} tabbar={tabbar} >
-				<Card  id="card" key="card" activePanel="card" phone={phone} score={score} setActiveModal={() => setActiveModal("card")}/>
-				<Stock id="stock" key="stock" activePanel="stock" stockList={stockList}/>
-				<Settings id="settings" key="settings" activePanel="settings" fetchedUser={fetchedUser} phone={phone} switchNotification={switchNotification} setActiveModal={()=> setActiveModal("card")} setSwitch={() => setSwitch()}/>
-			</Epic>
+			epica
 			:
 			<>
 			{/* <Div style={{display:"flex",justifyContent:"center", alignItems:"bottom"}}>Устанавливаю соединение, может потребоваться немного времени...</Div> */}
